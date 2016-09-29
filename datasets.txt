@@ -1,5 +1,0 @@
-australian
-breast-cancer
-diabetes
-german-numer
-heart
