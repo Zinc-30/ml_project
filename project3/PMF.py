@@ -18,6 +18,7 @@ def rmse(U,V,R):
             error += 25*(sigmoid(U[u].dot(V[i]))- R[u][i])**2
             nums += 1
     return np.sqrt(error/nums)
+
 def reverseR(R):
     Rr=defaultdict(dict)
     for u in R:
@@ -40,14 +41,18 @@ def PMF(R,N,M,K, lambdaU,lambdaV):
         dV = np.zeros(V.shape)
         for u in R:
             for i in R[u]:
-                tmp = U[u].dot(V[i])
-                dU[u] += V[i] * dsigmoid(tmp) * (sigmoid(tmp)-R[u][i]) 
+                tmp = sigmoid(U[u].dot(V[i]))
+                dU[u] += V[i] * tmp*(1-tmp) * (tmp-R[u][i]) 
             dU[u] += lambdaU * U[u]
         for i in Rr:
             for u in Rr[i]:
-                tmp = U[u].dot(V[i])
-                dV[i] += U[u] * dsigmoid(tmp) * (sigmoid(tmp)-R[u][i])
+                tmp = sigmoid(U[u].dot(V[i]))
+                dV[i] += U[u] * tmp*(1-tmp) * (tmp-R[u][i])
             dV[i] += lambdaV * V[i]
+        if np.linalg.norm(dU)>1:
+            dU = dU / np.linalg.norm(dU)
+        if np.linalg.norm(dV)>1:
+            dV = dV / np.linalg.norm(dV)
         return dU,dV
     def train(U,V):
         args=R,Rr
@@ -57,14 +62,15 @@ def PMF(R,N,M,K, lambdaU,lambdaV):
         pregradU = 0
         pregradV = 0
         tol=1e-3
+        momentum = 0.8
         stage = max(steps/100 , 1)
         for step in xrange(steps):
             dU,dV = gradient(U,V,*args)
-            dU = dU+0.9*pregradU
-            dV = dV+0.9*pregradV
+            dU = dU + momentum*pregradU
+            dV = dV + momentum*pregradV
             pregradU = dU
             pregradV = dV
-            if not step%stage and rate>0.01:
+            if not step%stage and rate>0.001:
                 rate = 0.95*rate
             U -= rate * dU
             V -= rate * dV
@@ -109,7 +115,7 @@ def t_movielens(ratio):
             R[u][i] = r/max_r
         return R
     def test(K,lambdaU,lambdaV):
-        print 'N:%d, M:%d, K:%d, la mbdaU:%s, lambdaV:%s'%(N,M,K,lambdaU,lambdaV)
+        print 'N:%d, M:%d, K:%d, lambdaU:%s, lambdaV:%s'%(N,M,K,lambdaU,lambdaV)
         ppservers = ()
         job_server = pp.Server(5,ppservers=ppservers)
         jobs = []
@@ -121,7 +127,7 @@ def t_movielens(ratio):
             R = get_R(data,RList)
             R_val = get_R(data,valList)
             print "job begin"
-            # func(R,N,M,K,lambdaU,lambdaV,R_val)
+            func(R,N,M,K,lambdaU,lambdaV,R_val)
             jobs.append(job_server.submit(func,(R,N,M,K,lambdaU,lambdaV,R_val),(rmse,PMF,sigmoid,dsigmoid,reverseR),("numpy as np","from collections import defaultdict","random")))
         job_server.wait()
         print "jobs finish"
