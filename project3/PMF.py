@@ -107,7 +107,7 @@ def t_movielens(ratio):
         ppservers = ()
         job_server = pp.Server(5,ppservers=ppservers)
         jobs = []
-        repeatN = 1
+        repeatN = 5
         for t in range(repeatN):
             idlist = np.random.permutation(trainNum)
             RList = idlist[:int(0.8*trainNum)]
@@ -118,6 +118,7 @@ def t_movielens(ratio):
             # func(R,N,M,K,lambdaU,lambdaV,R_val)
             jobs.append(job_server.submit(func,(R,N,M,K,lambdaU,lambdaV,R_val),(rmse,PMF,sigmoid,dsigmoid,reverseR),("numpy as np","from collections import defaultdict","random")))
         job_server.wait()
+        print "jobs finish"
         sumrmse = 0.0
         for job in jobs:
             U,V,rmse1 = job()
@@ -127,7 +128,7 @@ def t_movielens(ratio):
     max_r = 5.0
     data,N,M = gen_data("./u.data")
     rateNum = len(data)
-    fout = "09pmf-"+str(ratio)+".ans"
+    fout = "pp09pmf-"+str(ratio)+".ans"
 #+++++++++++++++prepare train test data+++++++++++++
     trainNum = int(ratio*rateNum)
     R_test = get_R(data,range(trainNum,rateNum))
