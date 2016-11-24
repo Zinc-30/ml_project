@@ -32,7 +32,7 @@ def PMF(R,N,M,K, lambdaU,lambdaV):
         for u in R:
             for i in R[u]:
                 cost += 0.5 * (R[u][i] - sigmoid(U[u].dot(V[i])))**2
-        cost += lambdaU/2 * np.linalg.norm(U)+lambdaV/2 * np.linalg.norm(V)
+        cost += lambdaU/2 * np.linalg.norm(U)**2+lambdaV/2 * np.linalg.norm(V)**2
         return cost
     def gradient(U,V, *args):
         R,Rr=args
@@ -54,12 +54,18 @@ def PMF(R,N,M,K, lambdaU,lambdaV):
         res=[]
         steps=10**3
         rate = 0.1
+        pregradU = 0
+        pregradV = 0
         tol=1e-3
-        stage = max(steps/20 , 1)
+        stage = max(steps/100 , 1)
         for step in xrange(steps):
             dU,dV = gradient(U,V,*args)
-            if rate > 0.001:
-                rate = 0.99*rate
+            dU = dU+0.9*pregradU
+            dV = dV+0.9*pregradV
+            pregradU = dU
+            pregradV = dV
+            if not step%stage and rate>0.01:
+                rate = 0.95*rate
             U -= rate * dU
             V -= rate * dV
             e = costL(U,V,*args)
@@ -73,8 +79,8 @@ def PMF(R,N,M,K, lambdaU,lambdaV):
                 print "====================" 
                 break
         return U, V
-    U = np.random.normal(size=(N,K))
-    V = np.random.normal(size=(M,K))
+    U = np.random.normal(0,0.01,size=(N,K))
+    V = np.random.normal(0,0.01,size=(M,K))
     Rr = reverseR(R)
     return train(U,V)
 
@@ -115,9 +121,10 @@ def t_movielens(ratio):
             R = get_R(data,RList)
             R_val = get_R(data,valList)
             print "job begin"
-            # func(R,N,M,K,lambdaU,lambdaV,R_val)
-            jobs.append(job_server.submit(func,(R,N,M,K,lambdaU,lambdaV,R_val),(rmse,PMF,sigmoid,dsigmoid,reverseR),("numpy as np","from collections import defaultdict","random")))
+            func(R,N,M,K,lambdaU,lambdaV,R_val)
+            # jobs.append(job_server.submit(func,(R,N,M,K,lambdaU,lambdaV,R_val),(rmse,PMF,sigmoid,dsigmoid,reverseR),("numpy as np","from collections import defaultdict","random")))
         job_server.wait()
+        print "jobs finish"
         sumrmse = 0.0
         for job in jobs:
             U,V,rmse1 = job()
