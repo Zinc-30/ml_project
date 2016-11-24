@@ -15,7 +15,7 @@ def rmse(U,V,R):
     nums = 0
     for u in R:
         for i in R[u]:
-            error += (sigmoid(U[u].dot(V[i])) *5 - R[u][i])**2
+            error += 25*(sigmoid(U[u].dot(V[i]))- R[u][i])**2
             nums += 1
     return np.sqrt(error/nums)
 def reverseR(R):
@@ -109,7 +109,7 @@ def t_movielens(ratio):
             R[u][i] = r/max_r
         return R
     def test(K,lambdaU,lambdaV):
-        print 'N:%d, M:%d, K:%d, lambdaU:%s, lambdaV:%s'%(N,M,K,lambdaU,lambdaV)
+        print 'N:%d, M:%d, K:%d, la mbdaU:%s, lambdaV:%s'%(N,M,K,lambdaU,lambdaV)
         ppservers = ()
         job_server = pp.Server(5,ppservers=ppservers)
         jobs = []
@@ -121,8 +121,8 @@ def t_movielens(ratio):
             R = get_R(data,RList)
             R_val = get_R(data,valList)
             print "job begin"
-            func(R,N,M,K,lambdaU,lambdaV,R_val)
-            # jobs.append(job_server.submit(func,(R,N,M,K,lambdaU,lambdaV,R_val),(rmse,PMF,sigmoid,dsigmoid,reverseR),("numpy as np","from collections import defaultdict","random")))
+            # func(R,N,M,K,lambdaU,lambdaV,R_val)
+            jobs.append(job_server.submit(func,(R,N,M,K,lambdaU,lambdaV,R_val),(rmse,PMF,sigmoid,dsigmoid,reverseR),("numpy as np","from collections import defaultdict","random")))
         job_server.wait()
         print "jobs finish"
         sumrmse = 0.0
