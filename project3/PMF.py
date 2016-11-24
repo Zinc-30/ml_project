@@ -1,7 +1,6 @@
 import random
 import numpy as np
 from collections import defaultdict
-from matplotlib import pyplot as plt
 from time import time
 
 
@@ -55,17 +54,18 @@ def PMF(R,N,M,K, lambdaU,lambdaV):
         steps=10**3
         learn_rate = 0.5
         tol=1e-3
-        stage = max(steps/100 , 1)
+        rate = learn_rate
+        stage = max(steps/20 , 1)
         for step in xrange(steps):
             dU,dV = gradient(U,V,*args)
-            if learn_rate/(step+1) > 0.005:
-                rate = learn_rate/(step+1)
+            if rate > 0.001:
+                rate = 0.95*rate
             U -= rate * dU
             V -= rate * dV
             if not step%stage:
                 e = costL(U,V,*args)
                 res.append(e)
-                # print step,e
+                print step,e
             if e < tol:
                 break
         # plt.plot(res)
@@ -115,8 +115,8 @@ def t_movielens(ratio):
     max_r = 5.0
     data,N,M = gen_data("./u.data")
     rateNum = len(data)
-    print rateNum
-    fout = "pmf-"+str(ratio)+".ans"
+#    print rateNum
+    fout = "09pmf-"+str(ratio)+".ans"
 #+++++++++++++++prepare train test data+++++++++++++
     trainNum = int(ratio*rateNum)
     R_test = get_R(data,range(trainNum,rateNum))
@@ -139,8 +139,7 @@ def t_movielens(ratio):
                 lambdaU_ = lambdaU
                 lambdaV_ = lambdaV
             resUV[lambdaU][lambdaV] = sumrmse
-            print sumrmse
-            return 0
+            print "u,v,rmse,time",lambdaU,lambdaV,sumrmse,timeUV[lambdaU][lambdaV]
     with open(fout,'w') as f:
         print >>f,"=========train lambda========="
         print >>f,"lambda:u,v",lambdaU_,lambdaV_
@@ -162,6 +161,7 @@ def t_movielens(ratio):
             U_ = U
             V_ = V
         resK[K] = sumrmse
+        print "k,rmse,time",K,sumrmse,timeK[K]
     with open(fout,'a') as f:
         print >>f,"=========train K========="
         print >>f,"K:",K_
@@ -169,6 +169,7 @@ def t_movielens(ratio):
         print >>f,"training time of K:",timeK
 #=================test=======================
     restest = rmse(U_,V_,R_test)
+    print "test:",restest
     with open(fout,'a') as f:
         print >>f,"=========test ==========="
         print >>f,"result of test:",restest
