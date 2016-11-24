@@ -2,6 +2,7 @@ import random
 import numpy as np
 from collections import defaultdict
 from time import time
+import pp
 
 
 def sigmoid(z):
@@ -52,31 +53,34 @@ def PMF(R,N,M,K, lambdaU,lambdaV):
         args=R,Rr
         res=[]
         steps=10**3
-        learn_rate = 0.5
+        rate = 0.1
         tol=1e-3
-        rate = learn_rate
         stage = max(steps/20 , 1)
         for step in xrange(steps):
             dU,dV = gradient(U,V,*args)
             if rate > 0.001:
-                rate = 0.95*rate
+                rate = 0.99*rate
             U -= rate * dU
             V -= rate * dV
-            if not step%stage:
-                e = costL(U,V,*args)
-                res.append(e)
-                print step,e
-            if e < tol:
+            e = costL(U,V,*args)
+            res.append(e)
+            # if not step%stage:
+            print step,e
+            if step>100 and abs(sum(res[-10:])-sum(res[-20:-10]))<tol:
+                print "====================" 
+                print "stop in %d step"%(step)
+                print "error is ",e
+                print "====================" 
                 break
-        # plt.plot(res)
-        # plt.savefig('1.png')
-        # print 'step:%d, e: %f' %(step, e)
         return U, V
-
     U = np.random.normal(size=(N,K))
     V = np.random.normal(size=(M,K))
     Rr = reverseR(R)
     return train(U,V)
+
+def func(R,N,M,K,lambdaU,lambdaV,R_val):
+    U,V = PMF(R,N,M,K,lambdaU,lambdaV)
+    return U,V,rmse(U,V,R_val)
 
 
 def t_movielens(ratio):
@@ -99,23 +103,30 @@ def t_movielens(ratio):
             R[u][i] = r/max_r
         return R
     def test(K,lambdaU,lambdaV):
-        sumrmse = 0.0
-        for t in range(5):
+        print 'N:%d, M:%d, K:%d, lambdaU:%s, lambdaV:%s'%(N,M,K,lambdaU,lambdaV)
+        ppservers = ()
+        job_server = pp.Server(5,ppservers=ppservers)
+        jobs = []
+        repeatN = 1
+        for t in range(repeatN):
             idlist = np.random.permutation(trainNum)
             RList = idlist[:int(0.8*trainNum)]
             valList = idlist[int(0.8*trainNum):]
             R = get_R(data,RList)
             R_val = get_R(data,valList)
-            print 'N:%d, M:%d, K:%d, lambdaU:%s, lambdaV:%s' \
-                    %(N,M,K,lambdaU,lambdaV)
-            U,V = PMF(R,N,M,K,lambdaU,lambdaV) 
-            sumrmse += rmse(U,V,R_val)
-        return sumrmse/5,U,V
+            print "job begin"
+            # func(R,N,M,K,lambdaU,lambdaV,R_val)
+            jobs.append(job_server.submit(func,(R,N,M,K,lambdaU,lambdaV,R_val),(rmse,PMF,sigmoid,dsigmoid,reverseR),("numpy as np","from collections import defaultdict","random")))
+        job_server.wait()
+        sumrmse = 0.0
+        for job in jobs:
+            U,V,rmse1 = job()
+            sumrmse += rmse1
+        return sumrmse/repeatN,U,V
     
     max_r = 5.0
     data,N,M = gen_data("./u.data")
     rateNum = len(data)
-#    print rateNum
     fout = "09pmf-"+str(ratio)+".ans"
 #+++++++++++++++prepare train test data+++++++++++++
     trainNum = int(ratio*rateNum)
@@ -139,6 +150,7 @@ def t_movielens(ratio):
                 lambdaU_ = lambdaU
                 lambdaV_ = lambdaV
             resUV[lambdaU][lambdaV] = sumrmse
+            print "==================result=lambda======================"
             print "u,v,rmse,time",lambdaU,lambdaV,sumrmse,timeUV[lambdaU][lambdaV]
     with open(fout,'w') as f:
         print >>f,"=========train lambda========="
@@ -161,6 +173,7 @@ def t_movielens(ratio):
             U_ = U
             V_ = V
         resK[K] = sumrmse
+        print "==================result=K============================="
         print "k,rmse,time",K,sumrmse,timeK[K]
     with open(fout,'a') as f:
         print >>f,"=========train K========="
@@ -169,6 +182,7 @@ def t_movielens(ratio):
         print >>f,"training time of K:",timeK
 #=================test=======================
     restest = rmse(U_,V_,R_test)
+    print "==================result=TEST============================="
     print "test:",restest
     with open(fout,'a') as f:
         print >>f,"=========test ==========="
